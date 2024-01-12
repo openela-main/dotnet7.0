@@ -1,4 +1,5 @@
-%bcond_with bootstrap
+# We dont' use %%bootstrap since that doesn't work in CentOS Koji
+%bcond_with bootstrap_dotnet
 
 # LTO triggers a compilation error for a source level issue.  Given that LTO should not
 # change the validity of any given source and the nature of the error (undefined enum), I
@@ -6,10 +7,10 @@
 # until that's done, disable LTO.  This has to happen before setting the flags below.
 %define _lto_cflags %{nil}
 
-%global host_version 7.0.12
-%global runtime_version 7.0.12
+%global host_version 7.0.13
+%global runtime_version 7.0.13
 %global aspnetcore_runtime_version %{runtime_version}
-%global sdk_version 7.0.112
+%global sdk_version 7.0.113
 %global sdk_feature_band_version %(echo %{sdk_version} | cut -d '-' -f 1 | sed -e 's|[[:digit:]][[:digit:]]$|00|')
 %global templates_version %{runtime_version}
 #%%global templates_version %%(echo %%{runtime_version} | awk 'BEGIN { FS="."; OFS="." } {print $1, $2, $3+1 }')
@@ -45,27 +46,28 @@
 %global runtime_arch x64
 %endif
 
-%global mono_archs ppc64le s390x
+%global mono_archs s390x ppc64le
 
 %{!?runtime_id:%global runtime_id %(. /etc/os-release ; echo "${ID}.${VERSION_ID%%.*}")-%{runtime_arch}}
 
 Name:           dotnet7.0
 Version:        %{sdk_rpm_version}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        .NET Runtime and SDK
 License:        MIT and ASL 2.0 and BSD and LGPLv2+ and CC-BY and CC0 and MS-PL and EPL-1.0 and GPL+ and GPLv2 and ISC and OFL and zlib
 URL:            https://github.com/dotnet/
 
-%if %{with bootstrap}
+%if %{with bootstrap_dotnet}
+%global bootstrap_sdk_version 7.0.109
 # The source is generated on a RHEL box via:
 # ./build-dotnet-tarball --bootstrap %%{upstream_tag}
 Source0:        dotnet-%{upstream_tag}-x64-bootstrap.tar.xz
 # Generated via ./build-arm64-bootstrap-tarball
-Source1:        dotnet-arm64-prebuilts-2022-10-12.tar.gz
+Source1:        dotnet-prebuilts-%{bootstrap_sdk_version}-arm64.tar.gz
 # Generated manually, same pattern as the arm64 tarball
-Source2:        dotnet-ppc64le-prebuilts-2022-10-21.tar.gz
+Source2:        dotnet-prebuilts-%{bootstrap_sdk_version}-ppc64le.tar.gz
 # Generated manually, same pattern as the arm64 tarball
-Source3:        dotnet-s390x-prebuilts-2022-10-12.tar.gz
+Source3:        dotnet-prebuilts-%{bootstrap_sdk_version}-s390x.tar.gz
 %else
 # The source is generated on a RHEL box via:
 # ./build-dotnet-tarball %%{upstream_tag}
@@ -90,7 +92,7 @@ ExclusiveArch:  x86_64
 BuildRequires:  clang
 BuildRequires:  cmake
 BuildRequires:  coreutils
-%if %{without bootstrap}
+%if %{without bootstrap_dotnet}
 BuildRequires:  dotnet-sdk-7.0
 BuildRequires:  dotnet-sdk-7.0-source-built-artifacts
 %endif
@@ -324,7 +326,7 @@ applications using the .NET SDK.
 %dotnet_targeting_pack dotnet-apphost-pack-7.0 %{runtime_rpm_version} Microsoft.NETCore.App 7.0 Microsoft.NETCore.App.Host.%{runtime_id}
 %dotnet_targeting_pack dotnet-targeting-pack-7.0 %{runtime_rpm_version} Microsoft.NETCore.App 7.0 Microsoft.NETCore.App.Ref
 %dotnet_targeting_pack aspnetcore-targeting-pack-7.0 %{aspnetcore_runtime_rpm_version} Microsoft.AspNetCore.App 7.0 Microsoft.AspNetCore.App.Ref
-%dotnet_targeting_pack netstandard-targeting-pack-2.1 %{sdk_rpm_version} NETStandard.Library 2.1 NETStandard.Library.Ref
+#%%dotnet_targeting_pack netstandard-targeting-pack-2.1 %%{sdk_rpm_version} NETStandard.Library 2.1 NETStandard.Library.Ref
 
 
 %package -n dotnet-sdk-7.0-source-built-artifacts
@@ -340,7 +342,7 @@ These are not meant for general use.
 
 
 %prep
-%if %{without bootstrap}
+%if %{without bootstrap_dotnet}
 %setup -q -n dotnet-%{upstream_tag}
 
 # Remove all prebuilts
@@ -411,7 +413,7 @@ sed -i -E 's|( /p:BuildDebPackage=false)|\1 --cmakeargs -DCLR_CMAKE_USE_SYSTEM_L
 %build
 cat /etc/os-release
 
-%if %{without bootstrap}
+%if %{without bootstrap_dotnet}
 # We need to create a copy because we will mutate this
 cp -a %{_libdir}/dotnet previously-built-dotnet
 find previously-built-dotnet
@@ -466,7 +468,7 @@ export OPENSSL_ENABLE_SHA1_SIGNATURES=1
 %endif
 
 VERBOSE=1 ./build.sh \
-%if %{without bootstrap}
+%if %{without bootstrap_dotnet}
     --with-sdk previously-built-dotnet \
 %endif
 %ifarch %{mono_archs}
@@ -477,8 +479,10 @@ VERBOSE=1 ./build.sh \
     /p:ContinueOnPrebuiltBaselineError=true \
     /v:n \
     /p:LogVerbosity=n \
-    /p:UseNonPortableIlasmPackageOverride=true \
 
+
+echo \
+    /p:SkipPortableRuntimeBuild=true \
 
 
 sed -e 's|[@]LIBDIR[@]|%{_libdir}|g' %{SOURCE11} > dotnet.sh
@@ -514,30 +518,35 @@ find %{buildroot}%{_libdir}/dotnet/ -type f -name '*.targets' -exec chmod -x {} 
 find %{buildroot}%{_libdir}/dotnet/ -type f -name '*.txt' -exec chmod -x {} \;
 find %{buildroot}%{_libdir}/dotnet/ -type f -name '*.xml' -exec chmod -x {} \;
 
-install -dm 0755 %{buildroot}%{_sysconfdir}/profile.d/
-install dotnet.sh %{buildroot}%{_sysconfdir}/profile.d/
+# Provided by dotnet-host from another SRPM
+#install -dm 0755 %%{buildroot}%%{_sysconfdir}/profile.d/
+#install dotnet.sh %%{buildroot}%%{_sysconfdir}/profile.d/
 
-install -dm 0755 %{buildroot}/%{_datadir}/bash-completion/completions
+# Provided by dotnet-host from another SRPM
+#install -dm 0755 %%{buildroot}/%%{_datadir}/bash-completion/completions
 # dynamic completion needs the file to be named the same as the base command
-install src/sdk/scripts/register-completions.bash %{buildroot}/%{_datadir}/bash-completion/completions/dotnet
+#install src/sdk/scripts/register-completions.bash %%{buildroot}/%%{_datadir}/bash-completion/completions/dotnet
 
 # TODO: the zsh completion script needs to be ported to use #compdef
 #install -dm 755 %%{buildroot}/%%{_datadir}/zsh/site-functions
 #install src/cli/scripts/register-completions.zsh %%{buildroot}/%%{_datadir}/zsh/site-functions/_dotnet
 
-install -dm 0755 %{buildroot}%{_bindir}
-ln -s ../../%{_libdir}/dotnet/dotnet %{buildroot}%{_bindir}/
+# Provided by dotnet-host from another SRPM
+#install -dm 0755 %%{buildroot}%%{_bindir}
+#ln -s ../../%%{_libdir}/dotnet/dotnet %%{buildroot}%%{_bindir}/
 
-for section in 1 7; do
-    install -dm 0755 %{buildroot}%{_mandir}/man${section}/
-    find -iname 'dotnet*'.${section} -type f -exec cp {} %{buildroot}%{_mandir}/man${section}/ \;
-done
+# Provided by dotnet-host from another SRPM
+#for section in 1 7; do
+#    install -dm 0755 %%{buildroot}%%{_mandir}/man${section}/
+#    find -iname 'dotnet*'.${section} -type f -exec cp {} %%{buildroot}%%{_mandir}/man${section}/ \;
+#done
 
-install -dm 0755 %{buildroot}%{_sysconfdir}/dotnet
-echo "%{_libdir}/dotnet" >> install_location
-install install_location %{buildroot}%{_sysconfdir}/dotnet/
-echo "%{_libdir}/dotnet" >> install_location_%{runtime_arch}
-install install_location_%{runtime_arch} %{buildroot}%{_sysconfdir}/dotnet/
+# Provided by dotnet-host from another SRPM
+#install -dm 0755 %%{buildroot}%%{_sysconfdir}/dotnet
+#echo "%%{_libdir}/dotnet" >> install_location
+#install install_location %%{buildroot}%%{_sysconfdir}/dotnet/
+#echo "%%{_libdir}/dotnet" >> install_location_%%{runtime_arch}
+#install install_location_%%{runtime_arch} %%{buildroot}%%{_sysconfdir}/dotnet/
 
 install -dm 0755 %{buildroot}%{_libdir}/dotnet/source-built-artifacts
 install -m 0644 artifacts/%{runtime_arch}/Release/Private.SourceBuilt.Artifacts.*.tar.gz %{buildroot}/%{_libdir}/dotnet/source-built-artifacts/
@@ -554,7 +563,7 @@ echo "Testing build results for debug symbols..."
 
 
 
-%check
+# Self-check
 %if 0%{?fedora} > 35
 # lttng in Fedora > 35 is incompatible with .NET
 export COMPlus_LTTng=0
@@ -563,27 +572,14 @@ export COMPlus_LTTng=0
 %{buildroot}%{_libdir}/dotnet/dotnet --info
 %{buildroot}%{_libdir}/dotnet/dotnet --version
 
+# Provided by dotnet-host from another SRPM
+rm %{buildroot}%{_libdir}/dotnet/LICENSE.txt
+rm %{buildroot}%{_libdir}/dotnet/ThirdPartyNotices.txt
+rm %{buildroot}%{_libdir}/dotnet/dotnet
 
-%if 0%{?rhel} <= 8
-%files -n dotnet
-# empty package useful for dependencies
-%endif
+# Provided by netstandard-targeting-pack-2.1 from another SRPM
+rm -rf %{buildroot}%{_libdir}/dotnet/packs/NETStandard.Library.Ref/2.1.0
 
-%files -n dotnet-host
-%dir %{_libdir}/dotnet
-%{_libdir}/dotnet/dotnet
-%dir %{_libdir}/dotnet/host
-%dir %{_libdir}/dotnet/host/fxr
-%{_bindir}/dotnet
-%license %{_libdir}/dotnet/LICENSE.txt
-%license %{_libdir}/dotnet/ThirdPartyNotices.txt
-%doc %{_mandir}/man1/dotnet*.1.gz
-%doc %{_mandir}/man7/dotnet*.7.gz
-%config(noreplace) %{_sysconfdir}/profile.d/dotnet.sh
-%config(noreplace) %{_sysconfdir}/dotnet
-%dir %{_datadir}/bash-completion
-%dir %{_datadir}/bash-completion/completions
-%{_datadir}/bash-completion/completions/dotnet
 
 %files -n dotnet-hostfxr-7.0
 %dir %{_libdir}/dotnet/host/fxr
@@ -617,51 +613,72 @@ export COMPlus_LTTng=0
 
 
 %changelog
-* Wed Oct 04 2023 Omair Majid <omajid@redhat.com> - 7.0.112-1
+* Tue Oct 24 2023 Omair Majid <omajid@redhat.com> - 7.0.113-2
+- Update to .NET SDK 7.0.113 and Runtime 7.0.13
+- Resolves: RHEL-14474
+
+* Mon Oct 16 2023 Omair Majid <omajid@redhat.com> - 7.0.112-2
 - Update to .NET SDK 7.0.112 and Runtime 7.0.12
-- Resolves: RHEL-11703
+- Resolves: RHEL-11704
 
-* Fri Sep 01 2023 Omair Majid <omajid@redhat.com> - 7.0.111-1
+* Tue Sep 12 2023 Omair Majid <omajid@redhat.com> - 7.0.111-2
 - Update to .NET SDK 7.0.111 and Runtime 7.0.11
-- Resolves: RHEL-2019
+- Resolves: RHEL-2001
 
-* Wed Aug 02 2023 Omair Majid <omajid@redhat.com> - 7.0.110-1
+* Wed Aug 23 2023 Omair Majid <omajid@redhat.com> - 7.0.110-4
+- Disable bootstrap
+- Related: RHBZ#2228570
+
+* Tue Aug 22 2023 Omair Majid <omajid@redhat.com> - 7.0.110-3
+- Enable bootstrap
+- Related: RHBZ#2228570
+
+* Wed Aug 09 2023 Omair Majid <omajid@redhat.com> - 7.0.110-2
 - Update to .NET SDK 7.0.110 and Runtime 7.0.10
-- Resolves: RHBZ#2228572
+- Resolves: RHBZ#2228570
 
-* Tue Jul 04 2023 Omair Majid <omajid@redhat.com> - 7.0.109-1
+* Tue Jul 11 2023 Omair Majid <omajid@redhat.com> - 7.0.109-2
 - Update to .NET SDK 7.0.109 and Runtime 7.0.9
-- Resolves: RHBZ#2219633
+- Resolves: RHBZ#2219631
 
-* Tue Jun 20 2023 Omair Majid <omajid@redhat.com> - 7.0.108-1
+* Wed Jul 05 2023 Omair Majid <omajid@redhat.com> - 7.0.108-2
 - Update to .NET SDK 7.0.108 and Runtime 7.0.8
-- Resolves: RHBZ#2216225
+- Resolves: RHBZ#2216223
 
-* Fri Jun 02 2023 Andrew Slice <andrew.slice@redhat.com> - 7.0.107-1
-- Update to .NET SDK 7.0.107 and Runtime 7.0.7
-- Resolves: RHBZ#2211876
-
-* Thu May 04 2023 Omair Majid <omajid@redhat.com> - 7.0.106-2
-- Update to .NET SDK 7.0.106 and Runtime 7.0.6
-- Resolves: RHBZ#2190267
-
-* Wed Apr 12 2023 Omair Majid <omajid@redhat.com> - 7.0.105-2
-- Update to .NET SDK 7.0.105 and Runtime 7.0.5
-- Resolves: RHBZ#2183589
-
-* Wed Mar 15 2023 Omair Majid <omajid@redhat.com> - 7.0.104-2
+* Thu Mar 02 2023 Omair Majid <omajid@redhat.com> - 7.0.104-1
 - Update to .NET SDK 7.0.104 and Runtime 7.0.4
-- Resolves: RHBZ#2175024
+- Resolves: RHBZ#2175026
 
-* Thu Feb 16 2023 Omair Majid <omajid@redhat.com> - 7.0.103-2
+* Thu Feb 02 2023 Omair Majid <omajid@redhat.com> - 7.0.103-1
 - Update to .NET SDK 7.0.103 and Runtime 7.0.3
-- Resolves: RHBZ#2166771
+- Resolves: RHBZ#2166775
 
-* Wed Jan 11 2023 Omair Majid <omajid@redhat.com> - 7.0.102-2
+* Mon Dec 19 2022 Omair Majid <omajid@redhat.com> - 7.0.102-1
 - Update to .NET SDK 7.0.102 and Runtime 7.0.2
-- Resolves: RHBZ#2154464
+- Resolves: RHBZ#2154466
 
-* Thu Aug 25 2022 Omair Majid <omajid@redhat.com> - 7.0.100
+* Tue Dec 06 2022 Omair Majid <omajid@redhat.com> - 7.0.101-1
+- Update to .NET SDK 7.0.101 and Runtime 7.0.1
+- Resolves: RHBZ#2150151
+
+* Wed Nov 02 2022 Omair Majid <omajid@redhat.com> - 7.0.100-1
+- Update to .NET SDK 7.0.100 and Runtime 7.0.0
+- Resolves: RHBZ#2137943
+
+* Mon Oct 24 2022 Omair Majid <omajid@redhat.com> - 7.0.100-0.4.rc2
+- Enable ppc64le builds
+- Related: RHBZ#2134642
+
+* Thu Oct 13 2022 Omair Majid <omajid@redhat.com> - 7.0.100-0.3.rc2
+- Update to .NET 7 RC 2
+- Resolves: RHBZ#2134642
+
+* Sat Sep 17 2022 Omair Majid <omajid@redhat.com> - 7.0.100-0.2.rc1
+- Update to .NET 7 RC 1
+- Enable s390x builds
+- Resolves: RHBZ#2123886
+
+* Thu Aug 25 2022 Omair Majid <omajid@redhat.com> - 7.0.100-0.1
 - Initial .NET 7 package
 - Resolves: RHBZ#2112096
 
