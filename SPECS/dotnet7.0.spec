@@ -6,10 +6,10 @@
 # until that's done, disable LTO.  This has to happen before setting the flags below.
 %define _lto_cflags %{nil}
 
-%global host_version 7.0.12
-%global runtime_version 7.0.12
+%global host_version 7.0.13
+%global runtime_version 7.0.13
 %global aspnetcore_runtime_version %{runtime_version}
-%global sdk_version 7.0.112
+%global sdk_version 7.0.113
 %global sdk_feature_band_version %(echo %{sdk_version} | cut -d '-' -f 1 | sed -e 's|[[:digit:]][[:digit:]]$|00|')
 %global templates_version %{runtime_version}
 #%%global templates_version %%(echo %%{runtime_version} | awk 'BEGIN { FS="."; OFS="." } {print $1, $2, $3+1 }')
@@ -51,7 +51,7 @@
 
 Name:           dotnet7.0
 Version:        %{sdk_rpm_version}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        .NET Runtime and SDK
 License:        MIT and ASL 2.0 and BSD and LGPLv2+ and CC-BY and CC0 and MS-PL and EPL-1.0 and GPL+ and GPLv2 and ISC and OFL and zlib
 URL:            https://github.com/dotnet/
@@ -323,7 +323,7 @@ applications using the .NET SDK.
 %dotnet_targeting_pack dotnet-apphost-pack-7.0 %{runtime_rpm_version} Microsoft.NETCore.App 7.0 Microsoft.NETCore.App.Host.%{runtime_id}
 %dotnet_targeting_pack dotnet-targeting-pack-7.0 %{runtime_rpm_version} Microsoft.NETCore.App 7.0 Microsoft.NETCore.App.Ref
 %dotnet_targeting_pack aspnetcore-targeting-pack-7.0 %{aspnetcore_runtime_rpm_version} Microsoft.AspNetCore.App 7.0 Microsoft.AspNetCore.App.Ref
-%dotnet_targeting_pack netstandard-targeting-pack-2.1 %{sdk_rpm_version} NETStandard.Library 2.1 NETStandard.Library.Ref
+#%%dotnet_targeting_pack netstandard-targeting-pack-2.1 %%{sdk_rpm_version} NETStandard.Library 2.1 NETStandard.Library.Ref
 
 
 %package -n dotnet-sdk-7.0-source-built-artifacts
@@ -515,30 +515,35 @@ find %{buildroot}%{_libdir}/dotnet/ -type f -name '*.targets' -exec chmod -x {} 
 find %{buildroot}%{_libdir}/dotnet/ -type f -name '*.txt' -exec chmod -x {} \;
 find %{buildroot}%{_libdir}/dotnet/ -type f -name '*.xml' -exec chmod -x {} \;
 
-install -dm 0755 %{buildroot}%{_sysconfdir}/profile.d/
-install dotnet.sh %{buildroot}%{_sysconfdir}/profile.d/
+# Provided by dotnet-host from another SRPM
+#install -dm 0755 %%{buildroot}%%{_sysconfdir}/profile.d/
+#install dotnet.sh %%{buildroot}%%{_sysconfdir}/profile.d/
 
-install -dm 0755 %{buildroot}/%{_datadir}/bash-completion/completions
+# Provided by dotnet-host from another SRPM
+#install -dm 0755 %%{buildroot}/%%{_datadir}/bash-completion/completions
 # dynamic completion needs the file to be named the same as the base command
-install src/sdk/scripts/register-completions.bash %{buildroot}/%{_datadir}/bash-completion/completions/dotnet
+#install src/sdk/scripts/register-completions.bash %%{buildroot}/%%{_datadir}/bash-completion/completions/dotnet
 
 # TODO: the zsh completion script needs to be ported to use #compdef
 #install -dm 755 %%{buildroot}/%%{_datadir}/zsh/site-functions
 #install src/cli/scripts/register-completions.zsh %%{buildroot}/%%{_datadir}/zsh/site-functions/_dotnet
 
-install -dm 0755 %{buildroot}%{_bindir}
-ln -s ../../%{_libdir}/dotnet/dotnet %{buildroot}%{_bindir}/
+# Provided by dotnet-host from another SRPM
+#install -dm 0755 %%{buildroot}%%{_bindir}
+#ln -s ../../%%{_libdir}/dotnet/dotnet %%{buildroot}%%{_bindir}/
 
-for section in 1 7; do
-    install -dm 0755 %{buildroot}%{_mandir}/man${section}/
-    find -iname 'dotnet*'.${section} -type f -exec cp {} %{buildroot}%{_mandir}/man${section}/ \;
-done
+# Provided by dotnet-host from another SRPM
+#for section in 1 7; do
+#    install -dm 0755 %%{buildroot}%%{_mandir}/man${section}/
+#    find -iname 'dotnet*'.${section} -type f -exec cp {} %%{buildroot}%%{_mandir}/man${section}/ \;
+#done
 
-install -dm 0755 %{buildroot}%{_sysconfdir}/dotnet
-echo "%{_libdir}/dotnet" >> install_location
-install install_location %{buildroot}%{_sysconfdir}/dotnet/
-echo "%{_libdir}/dotnet" >> install_location_%{runtime_arch}
-install install_location_%{runtime_arch} %{buildroot}%{_sysconfdir}/dotnet/
+# Provided by dotnet-host from another SRPM
+#install -dm 0755 %%{buildroot}%%{_sysconfdir}/dotnet
+#echo "%%{_libdir}/dotnet" >> install_location
+#install install_location %%{buildroot}%%{_sysconfdir}/dotnet/
+#echo "%%{_libdir}/dotnet" >> install_location_%%{runtime_arch}
+#install install_location_%%{runtime_arch} %%{buildroot}%%{_sysconfdir}/dotnet/
 
 install -dm 0755 %{buildroot}%{_libdir}/dotnet/source-built-artifacts
 install -m 0644 artifacts/%{runtime_arch}/Release/Private.SourceBuilt.Artifacts.*.tar.gz %{buildroot}/%{_libdir}/dotnet/source-built-artifacts/
@@ -554,8 +559,7 @@ echo "Testing build results for debug symbols..."
 %{SOURCE10} -v %{buildroot}%{_libdir}/dotnet/
 
 
-
-%check
+# Self-check
 %if 0%{?fedora} > 35
 # lttng in Fedora > 35 is incompatible with .NET
 export COMPlus_LTTng=0
@@ -564,27 +568,14 @@ export COMPlus_LTTng=0
 %{buildroot}%{_libdir}/dotnet/dotnet --info
 %{buildroot}%{_libdir}/dotnet/dotnet --version
 
+# Provided by dotnet-host from another SRPM
+rm %{buildroot}%{_libdir}/dotnet/LICENSE.txt
+rm %{buildroot}%{_libdir}/dotnet/ThirdPartyNotices.txt
+rm %{buildroot}%{_libdir}/dotnet/dotnet
 
-%if 0%{?rhel} <= 8
-%files -n dotnet
-# empty package useful for dependencies
-%endif
+# Provided by netstandard-targeting-pack-2.1 from another SRPM
+rm -rf %{buildroot}%{_libdir}/dotnet/packs/NETStandard.Library.Ref/2.1.0
 
-%files -n dotnet-host
-%dir %{_libdir}/dotnet
-%{_libdir}/dotnet/dotnet
-%dir %{_libdir}/dotnet/host
-%dir %{_libdir}/dotnet/host/fxr
-%{_bindir}/dotnet
-%license %{_libdir}/dotnet/LICENSE.txt
-%license %{_libdir}/dotnet/ThirdPartyNotices.txt
-%doc %{_mandir}/man1/dotnet*.1.gz
-%doc %{_mandir}/man7/dotnet*.7.gz
-%config(noreplace) %{_sysconfdir}/profile.d/dotnet.sh
-%config(noreplace) %{_sysconfdir}/dotnet
-%dir %{_datadir}/bash-completion
-%dir %{_datadir}/bash-completion/completions
-%{_datadir}/bash-completion/completions/dotnet
 
 %files -n dotnet-hostfxr-7.0
 %dir %{_libdir}/dotnet/host/fxr
@@ -618,33 +609,29 @@ export COMPlus_LTTng=0
 
 
 %changelog
-* Wed Oct 04 2023 Omair Majid <omajid@redhat.com> - 7.0.112-1
+* Tue Oct 24 2023 Omair Majid <omajid@redhat.com> - 7.0.113-2
+- Update to .NET SDK 7.0.113 and Runtime 7.0.13
+- Resolves: RHEL-14467
+
+* Mon Oct 16 2023 Omair Majid <omajid@redhat.com> - 7.0.112-2
 - Update to .NET SDK 7.0.112 and Runtime 7.0.12
-- Resolves: RHEL-11697
+- Resolves: RHEL-11698
 
-* Fri Sep 01 2023 Omair Majid <omajid@redhat.com> - 7.0.111-1
+* Tue Sep 12 2023 Omair Majid <omajid@redhat.com> - 7.0.111-2
 - Update to .NET SDK 7.0.111 and Runtime 7.0.11
-- Resolves: RHEL-2021
+- Resolves: RHEL-2000
 
-* Wed Aug 02 2023 Omair Majid <omajid@redhat.com> - 7.0.110-1
+* Wed Aug 09 2023 Omair Majid <omajid@redhat.com> - 7.0.110-2
 - Update to .NET SDK 7.0.110 and Runtime 7.0.10
-- Resolves: RHBZ#2228573
+- Resolves: RHBZ#2228571
 
-* Tue Jul 04 2023 Omair Majid <omajid@redhat.com> - 7.0.109-1
+* Tue Jul 11 2023 Omair Majid <omajid@redhat.com> - 7.0.109-2
 - Update to .NET SDK 7.0.109 and Runtime 7.0.9
-- Resolves: RHBZ#2219634
+- Resolves: RHBZ#2219632
 
-* Tue Jun 20 2023 Omair Majid <omajid@redhat.com> - 7.0.108-1
-- Update to .NET SDK 7.0.108 and Runtime 7.0.8
-- Resolves: RHBZ#2216226
-
-* Fri Jun 02 2023 Andrew Slice <andrew.slice@redhat.com> - 7.0.107-1
+* Tue Jun 13 2023 Andrew Slice <andrew.slice@redhat.com> - 7.0.107-2
 - Update to .NET SDK 7.0.107 and Runtime 7.0.7
-- Resolves: RHBZ#2211877
-
-* Thu Apr 27 2023 Omair Majid <omajid@redhat.com> - 7.0.106-1
-- Update to .NET SDK 7.0.106 and Runtime 7.0.6
-- Resolves: RHBZ#2190269
+- Resolves: RHBZ#2211767
 
 * Wed Apr 12 2023 Omair Majid <omajid@redhat.com> - 7.0.105-2
 - Update to .NET SDK 7.0.105 and Runtime 7.0.5
