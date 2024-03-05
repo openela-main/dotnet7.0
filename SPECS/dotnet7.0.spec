@@ -7,10 +7,10 @@
 # until that's done, disable LTO.  This has to happen before setting the flags below.
 %define _lto_cflags %{nil}
 
-%global host_version 7.0.13
-%global runtime_version 7.0.13
+%global host_version 7.0.16
+%global runtime_version 7.0.16
 %global aspnetcore_runtime_version %{runtime_version}
-%global sdk_version 7.0.113
+%global sdk_version 7.0.116
 %global sdk_feature_band_version %(echo %{sdk_version} | cut -d '-' -f 1 | sed -e 's|[[:digit:]][[:digit:]]$|00|')
 %global templates_version %{runtime_version}
 #%%global templates_version %%(echo %%{runtime_version} | awk 'BEGIN { FS="."; OFS="." } {print $1, $2, $3+1 }')
@@ -52,7 +52,7 @@
 
 Name:           dotnet7.0
 Version:        %{sdk_rpm_version}
-Release:        2%{?dist}
+Release:        1%{?dist}
 Summary:        .NET Runtime and SDK
 License:        MIT and ASL 2.0 and BSD and LGPLv2+ and CC-BY and CC0 and MS-PL and EPL-1.0 and GPL+ and GPLv2 and ISC and OFL and zlib
 URL:            https://github.com/dotnet/
@@ -79,6 +79,8 @@ Source11:       dotnet.sh.in
 
 # Disable apphost; there's no net6.0 apphost for ppc64le
 Patch1:         roslyn-analyzers-ppc64le-apphost.patch
+# https://github.com/dotnet/runtime/pull/95217#issuecomment-1842799362
+Patch2:         runtime-re-enable-implicit-rejection.patch
 
 
 
@@ -401,6 +403,7 @@ popd
 %endif
 
 %patch1 -p1
+%patch2 -p1
 
 # Fix bad hardcoded path in build
 sed -i 's|/usr/share/dotnet|%{_libdir}/dotnet|' src/runtime/src/native/corehost/hostmisc/pal.unix.cpp
@@ -613,6 +616,18 @@ rm -rf %{buildroot}%{_libdir}/dotnet/packs/NETStandard.Library.Ref/2.1.0
 
 
 %changelog
+* Thu Feb 01 2024 Omair Majid <omajid@redhat.com> - 7.0.116-1
+- Update to .NET SDK 7.0.116 and Runtime 7.0.16
+- Resolves: RHEL-23791
+
+* Wed Dec 20 2023 Omair Majid <omajid@redhat.com> - 7.0.115-1
+- Update to .NET SDK 7.0.115 and Runtime 7.0.15
+- Resolves: RHEL-19805
+
+* Thu Nov 02 2023 Omair Majid <omajid@redhat.com> - 7.0.114-1
+- Update to .NET SDK 7.0.114 and Runtime 7.0.14
+- Resolves: RHEL-15358
+
 * Tue Oct 24 2023 Omair Majid <omajid@redhat.com> - 7.0.113-2
 - Update to .NET SDK 7.0.113 and Runtime 7.0.13
 - Resolves: RHEL-14474
