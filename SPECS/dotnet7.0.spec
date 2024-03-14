@@ -6,10 +6,10 @@
 # until that's done, disable LTO.  This has to happen before setting the flags below.
 %define _lto_cflags %{nil}
 
-%global host_version 7.0.16
-%global runtime_version 7.0.16
+%global host_version 7.0.17
+%global runtime_version 7.0.17
 %global aspnetcore_runtime_version %{runtime_version}
-%global sdk_version 7.0.116
+%global sdk_version 7.0.117
 %global sdk_feature_band_version %(echo %{sdk_version} | cut -d '-' -f 1 | sed -e 's|[[:digit:]][[:digit:]]$|00|')
 %global templates_version %{runtime_version}
 #%%global templates_version %%(echo %%{runtime_version} | awk 'BEGIN { FS="."; OFS="." } {print $1, $2, $3+1 }')
@@ -612,6 +612,10 @@ rm -rf %{buildroot}%{_libdir}/dotnet/packs/NETStandard.Library.Ref/2.1.0
 
 
 %changelog
+* Thu Feb 29 2024 Omair Majid <omajid@redhat.com> - 7.0.117-1
+- Update to .NET SDK 7.0.117 and Runtime 7.0.17
+- Resolves: RHEL-27544
+
 * Thu Feb 01 2024 Omair Majid <omajid@redhat.com> - 7.0.116-1
 - Update to .NET SDK 7.0.116 and Runtime 7.0.16
 - Resolves: RHEL-23793
